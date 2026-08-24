@@ -104,7 +104,28 @@ nav button:hover, nav button.active {
   border-radius: 10px;
   background: #fff;
   display: none;
+  transition: all 0.3s ease;
 }
+.proxy-frame.fullscreen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  border-radius: 0;
+  border: none;
+}
+.fs-btn {
+  background: linear-gradient(45deg, #00d4ff, #ff00ff);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+}
+.fs-btn:hover { opacity: 0.85; }
 .proxy-info {
   margin-top: 10px;
   padding: 10px;
@@ -145,9 +166,9 @@ nav button:hover, nav button.active {
   overflow: hidden;
 }
 .game-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-3px);
   border-color: #00d4ff;
-  box-shadow: 0 10px 30px rgba(0,212,255,0.3);
+  box-shadow: 0 5px 15px rgba(0,212,255,0.2);
 }
 .game-card::before {
   content: "";
@@ -243,8 +264,9 @@ footer {
       <input type="text" class="proxy-url" id="proxyUrl" placeholder="Enter URL (e.g., https://google.com)" value="https://google.com">
       <button class="proxy-btn" onclick="openProxy()">Browse</button>
       <button class="proxy-btn" onclick="loadGithub()">📁 GitHub</button>
+      <button class="fs-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
     </div>
-    <iframe id="proxyFrame" class="proxy-frame"></iframe>
+    <iframe id="proxyFrame" class="proxy-frame" loading="lazy" referrerpolicy="no-referrer"></iframe>
     <div class="proxy-info">
       💡 Auto-fallback proxies: AllOrigins → CodeTabs → CorsProxy → ThingProxy → GoProxy. Some sites block all proxies.
     </div>
@@ -305,7 +327,7 @@ footer {
     <h3 id="modalTitle">Game</h3>
     <button class="close-btn" onclick="closeGame()">✕ Close</button>
   </div>
-  <iframe id="gameFrame" class="modal-frame"></iframe>
+  <iframe id="gameFrame" class="modal-frame" loading="lazy" referrerpolicy="no-referrer"></iframe>
 </div>
 
 <footer>
@@ -477,11 +499,19 @@ function tryProxies(url, frameId, index = 0) {
   const frame = document.getElementById(frameId);
   frame.dataset.tryIndex = index;
   frame.src = proxySources[index] + encodeURIComponent(url);
+  // Stop trying once content loads
+  frame.onload = () => {
+    try {
+      if (frame.contentDocument && frame.contentDocument.title && frame.contentDocument.title !== '') {
+        frame.dataset.tryIndex = 999; // mark as success
+      }
+    } catch (e) { /* cross-origin, can't read - but it loaded */ }
+  };
   setTimeout(() => {
     if (frame.dataset.tryIndex == index) {
       tryProxies(url, frameId, index + 1);
     }
-  }, 8000);
+  }, 5000);
 }
 
 // Play a game in modal
@@ -541,6 +571,34 @@ function openProxy() {
   frame.style.display = 'block';
   tryProxies(fullUrl, 'proxyFrame', 0);
 }
+
+// Fullscreen toggle for proxy browser
+function toggleFullscreen() {
+  const frame = document.getElementById('proxyFrame');
+  const btn = event.target;
+  if (frame.classList.contains('fullscreen')) {
+    frame.classList.remove('fullscreen');
+    btn.textContent = '⛶ Fullscreen';
+    document.body.style.overflow = 'auto';
+  } else {
+    frame.classList.add('fullscreen');
+    btn.textContent = '✕ Exit Fullscreen';
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+// ESC key to exit fullscreen
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const frame = document.getElementById('proxyFrame');
+    if (frame.classList.contains('fullscreen')) {
+      frame.classList.remove('fullscreen');
+      document.body.style.overflow = 'auto';
+      const btns = document.querySelectorAll('.fs-btn');
+      btns.forEach(b => b.textContent = '⛶ Fullscreen');
+    }
+  }
+});
 
 function loadGithub() {
   document.getElementById('proxyUrl').value = 'https://github.com';
